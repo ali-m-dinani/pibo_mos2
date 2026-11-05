@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
@@ -125,6 +126,7 @@ class BenchmarkSuite:
         lw = {k: v for k, v in lw.items() if k in valid}
         self.weights = LossWeights(**lw)
         self.results: List[RunRecord] = []
+        self.checkpoint_dir: Optional[Path] = None
 
         # Physical-validation gate (PIBO-only). validator may be None.
         self.validator         = validator
@@ -258,6 +260,23 @@ class BenchmarkSuite:
                     loss = ReaxFFLoss(self.runner, self.specs,
                                       self.train_frames, self.val_frames,
                                       weights=self.weights)
+                    if self.checkpoint_dir is not None:
+                        checkpoint_path = self.checkpoint_dir / (
+                            f"{opt_name}_rep{rep}_phys{phys}.npz")
+                        best_seen = [float("inf")]
+
+                        def save_best(params, value, path=checkpoint_path,
+                                      best=best_seen):
+                            if not np.isfinite(value) or value >= best[0]:
+                                return
+                            path.parent.mkdir(parents=True, exist_ok=True)
+                            temporary = path.with_suffix(".tmp.npz")
+                            np.savez(temporary, best_x=np.asarray(params),
+                                     best_loss=value)
+                            os.replace(temporary, path)
+                            best[0] = value
+
+                        loss.checkpoint_callback = save_best
                     OptCls = OPTIMIZER_REGISTRY[opt_name]
                     opt_config = {
                         "gp":          self.config.get("gp", {}),

@@ -50,10 +50,13 @@ class BaseOptimizer:
 
     def _wrap_loss(self, loss: Callable[[np.ndarray], float]) -> Callable[[np.ndarray], float]:
         """Augment the loss with the physics penalty when enabled."""
-        if not self.physics_informed or self.penalty is None:
-            return loss
-
         def wrapped(x: np.ndarray) -> float:
-            return float(loss(x)) + float(self.penalty(x))
+            value = float(loss(x))
+            if self.physics_informed and self.penalty is not None:
+                value += float(self.penalty(x))
+            callback = getattr(loss, "checkpoint_callback", None)
+            if callback is not None:
+                callback(x, value)
+            return value
         wrapped.__name__ = f"{getattr(loss, '__name__', 'loss')}_phys"
         return wrapped

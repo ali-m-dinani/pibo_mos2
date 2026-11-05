@@ -134,6 +134,8 @@ class ParameterSpec:
 
     @property
     def manuscript_std(self) -> Optional[float]:
+        if not np.isfinite(self.mos2_ref_value):
+            return None
         # Use half the (Note S1 - MoS2_reaxff) gap as a rough "1σ"
         # estimate for the posterior-z diagnostic — proportional to the
         # bound width but small enough to flag real movement.
@@ -185,12 +187,39 @@ def _load_diff() -> List[Dict]:
     here = os.path.dirname(os.path.abspath(__file__))
     diff_path = os.path.normpath(os.path.join(here, "..", "scripts",
                                               "notes1_param_diff.json"))
-    if not os.path.exists(diff_path):
+    if os.path.exists(diff_path):
+        with open(diff_path, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+
+    bounds_path = os.path.normpath(os.path.join(
+        here, "..", "configs", "ezff_variable_bounds.txt"))
+    if not os.path.exists(bounds_path):
         raise FileNotFoundError(
-            f"{diff_path} not found. Run scripts/build_notes1_template.py "
-            "first to regenerate the Note-S1 diff list.")
-    with open(diff_path, "r", encoding="utf-8") as fh:
-        return json.load(fh)
+            f"Neither {diff_path} nor {bounds_path} exists.")
+    entries = []
+    with open(bounds_path, "r", encoding="utf-8") as fh:
+        for line in fh:
+            fields = line.split()
+            if not fields or fields[0].startswith("#"):
+                continue
+            name, lower, upper = fields
+            lower, upper = float(lower), float(upper)
+            if name.startswith(("r_hb", "p_hb")):
+                block = "hbond"
+            elif name.startswith(("V1_", "V2_", "V3_")):
+                block = "torsion"
+            elif name.startswith(("Thetao_", "p_val")):
+                block = "angle"
+            elif name.startswith(("Dij_", "RvdW_", "Alfa_", "ro_")):
+                block = "offdiag"
+            else:
+                block = "bond"
+            entries.append({"name": name, "block": block,
+                            "atoms": name.rsplit("_", 1)[-1],
+                            "notes1": 0.5 * (lower + upper),
+                            "mos2_ref": float("nan"),
+                            "lo": lower, "hi": upper})
+    return entries
 
 
 _DIFF = _load_diff()
@@ -199,7 +228,8 @@ REAXFF_PARAMETERS: List[ParameterSpec] = []
 for d in _DIFF:
     name = d["name"]
     family = _family(name)
-    lo, hi = _compute_bounds(d["notes1"], d["mos2_ref"], family)
+    lo, hi = ((d["lo"], d["hi"]) if "lo" in d else
+              _compute_bounds(d["notes1"], d["mos2_ref"], family))
     REAXFF_PARAMETERS.append(ParameterSpec(
         name=name,
         lo=lo, hi=hi,

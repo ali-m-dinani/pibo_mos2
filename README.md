@@ -52,6 +52,46 @@ executable on `PATH` (ReaxFF-enabled) — install separately via
 `conda install -c conda-forge lammps`. The UQ pipeline does **not** need
 LAMMPS.
 
+## Short PIBO run
+
+From the repository root, after installing the package:
+
+```powershell
+python run.py --check-only
+python run.py --budget 20 --replicates 1 --optimizers pibo --output results/quick_pibo
+```
+
+The run writes `results/quick_pibo/benchmark_per_run.csv`, aggregate results,
+and posterior parameter reports. `run.py` accepts a ReaxFF-enabled LAMMPS
+executable on `PATH`, or an explicit path in `LAMMPS_BIN` (PowerShell:
+`$env:LAMMPS_BIN = 'C:\path\to\lmp.exe'`). The separate recalibration
+drivers use `PIBO_LMP`.
+
+The released repository does not include `scripts/notes1_param_diff.json`.
+When it is absent, the BO framework uses the 46 released bounds in
+`configs/ezff_variable_bounds.txt` and their midpoints as prior centers.
+MoS2 reference-value uncertainty comparisons are unavailable in that mode.
+
+## Short cobalt run
+
+The copied JAX-ReaxFF cobalt dataset is in `data/cobalt/`. It uses a `geo`
+geometry file and `trainset.in` energy equations, so it has a separate PIBO
+driver from the MoS2 VASP workflow:
+
+```powershell
+python pibo_calculation/cobalt_pibo.py --check-only
+python pibo_calculation/cobalt_pibo.py --budget 12 --seed 42
+```
+
+For a short run, this driver uses the 18 cluster and dimer energy equations
+and their 19 cobalt geometries. It optimizes the 12 parameters listed in
+`data/cobalt/params`, starting from `ffield_lit`. The loss is the RMS of each
+energy residual divided by its training-set tolerance. It uses PIBO's staged
+GP acquisition and the supplied parameter bounds; MoS2-specific physical
+rules are not applied. Outputs are `results/cobalt_quick_pibo/summary.json`,
+`history.csv`, and `ffield_best`. The full cobalt training set includes
+additional structures and targets that this short driver does not evaluate.
+
 ## Re-calibrating ReaxFF parameters
 
 Two calibration routes produce a force field. **Both require a

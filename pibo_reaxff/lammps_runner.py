@@ -53,7 +53,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from .parameters import default_general_params
+from .parameters import REAXFF_PARAMETERS, default_general_params
 from .vasp_reader import DFTFrame
 
 
@@ -311,6 +311,7 @@ class LAMMPSRunner:
 
     DEFAULT_MASSES: Dict[str, float] = {
         "Mo": 95.94, "S": 32.06, "H": 1.008,
+        "Co": 58.933,
         "Ca": 40.078, "Si": 28.0855, "O": 15.9994, "Al": 26.9815,
     }
 
@@ -379,7 +380,10 @@ class LAMMPSRunner:
         # any non-ASCII char in the template (em-dash, en-dash, accents).
         with open(self.base_ffield, "r", encoding="utf-8") as f:
             template = f.read()
-        rendered = generate_forcefield(template, params)
+        template_params = {spec.name: spec.notes1_value
+                           for spec in REAXFF_PARAMETERS}
+        template_params.update(params)
+        rendered = generate_forcefield(template, template_params)
         if "<<" in rendered:
             unresolved = re.findall(r"<<\w+>>", rendered)
             raise RuntimeError(

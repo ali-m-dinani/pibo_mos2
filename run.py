@@ -560,6 +560,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         val_shrink=float(val_cfg.get("shrink_factor", 0.7)),
         val_early_stop=bool(val_cfg.get("early_stop", False)),
     )
+    results_dir = (args.output if args.output else repo_root() /
+                   yc.get("output", {}).get("results_dir", "results"))
+    suite.checkpoint_dir = results_dir / "checkpoints"
 
     optimizers = args.optimizers or yc.get("bo", {}).get("optimizers")
     ablation = bool(yc.get("bo", {}).get("ablation_physics_off", True))
@@ -586,6 +589,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 "acquisition": cfg.get("acquisition", {}),
             },
             verbose=True,
+            checkpoint_dir=results_dir / "checkpoints",
         )
         staged = runner.run()
         log.info("Staged BO complete: final_loss=%.4f val=%.4f "
@@ -723,6 +727,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     val_shrink=float(val_cfg.get("shrink_factor", 0.7)),
                     val_early_stop=bool(val_cfg.get("early_stop", False)),
                 )
+                suite.checkpoint_dir = results_dir / "checkpoints"
                 df = suite.run_all(optimizers=optimizers,
                                    ablation_physics_off=ablation)
                 attempts_used = attempt + 1

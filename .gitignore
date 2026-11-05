@@ -38,3 +38,4 @@ desktop.ini
 log.lammps
 *.lmp_log
 ffield.reax
+/results/

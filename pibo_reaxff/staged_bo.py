@@ -45,7 +45,10 @@ Public API
 from __future__ import annotations
 
 import time
+import json
+import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -307,7 +310,8 @@ class StagedBORunner:
                  stages: Optional[Sequence[Stage]] = None,
                  optimizer_factory: Optional[Callable] = None,
                  optimizer_config: Optional[Dict] = None,
-                 verbose: bool = True):
+                 verbose: bool = True,
+                 checkpoint_dir: Optional[Path] = None):
         self.runner = runner
         self.specs = specs
         self.train_frames = train_frames
@@ -316,6 +320,7 @@ class StagedBORunner:
         self.stages = list(stages or DEFAULT_STAGES)
         self.optimizer_config = optimizer_config or {}
         self.verbose = verbose
+        self.checkpoint_dir = checkpoint_dir
 
         if optimizer_factory is None:
             from .optimizers.pibo import PIBOOptimizer
@@ -384,6 +389,27 @@ class StagedBORunner:
                 stage_val=stage_val,
                 weights=self.weights,
             )
+            if self.checkpoint_dir is not None:
+                checkpoint_path = self.checkpoint_dir / f"stage_{stage.name}.json"
+                best_seen = [float("inf")]
+
+                def save_best(params, value, path=checkpoint_path,
+                              names=active_names, frozen_params=frozen,
+                              best=best_seen):
+                    if not np.isfinite(value) or value >= best[0]:
+                        return
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    merged = dict(frozen_params)
+                    merged.update({name: float(param) for name, param in
+                                   zip(names, params)})
+                    temporary = path.with_suffix(".tmp")
+                    temporary.write_text(json.dumps({"best_loss": value,
+                                                     "parameters": merged}),
+                                         encoding="utf-8")
+                    os.replace(temporary, path)
+                    best[0] = value
+
+                staged_loss.checkpoint_callback = save_best
 
             cfg = dict(self.optimizer_config)
             cfg["init_lhs_points"] = stage.init_lhs_points
