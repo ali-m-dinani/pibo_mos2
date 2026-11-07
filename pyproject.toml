@@ -41,6 +41,7 @@ dependencies = [
     "scikit-learn>=1.4",
     "pyyaml>=6.0",
     "tqdm>=4.66",
+    "pydoe>=1.6,<2",
 ]
 
 [project.optional-dependencies]
@@ -50,7 +51,7 @@ gpu = [
 ]
 # Sampling helpers used by parameters.latin_hypercube (NumPy fallback exists).
 sampling = [
-    "pyDOE>=0.3.8",
+    "pydoe>=1.6,<2",
 ]
 # Hamiltonian Monte Carlo posterior — scripts/phase04_hmc.py (UQ pipeline).
 hmc = [
@@ -74,8 +75,8 @@ dev = [
 [project.urls]
 Repository = "https://github.com/Jin-Ho-Bae/pibo_mos2"
 
-[tool.setuptools]
-packages = ["pibo_reaxff", "pibo_reaxff.optimizers"]
+[tool.setuptools.packages.find]
+include = ["pibo_reaxff", "pibo_reaxff.*"]
 
 # lammps_templates/ and configs/ are loaded via absolute paths anchored
 # to local_env.repo_root(); no package_data entry needed.

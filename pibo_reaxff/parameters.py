@@ -301,11 +301,11 @@ def names(specs: List[ParameterSpec]) -> List[str]:
 
 def latin_hypercube(n: int, specs: List[ParameterSpec],
                     rng: np.random.Generator | None = None) -> np.ndarray:
-    """LHS in physical space (pyDOE if available, NumPy fallback otherwise)."""
+    """LHS in physical space (pydoe if available, NumPy fallback otherwise)."""
     rng = rng or np.random.default_rng()
     d = len(specs)
     try:
-        from pyDOE import lhs
+        from pydoe import lhs
         u = lhs(d, samples=n, criterion="maximin",
                 random_state=rng.integers(2**31 - 1))
     except Exception:

@@ -5,7 +5,7 @@ Implements multi-stage optimization with block search and physics-aware acquisit
 
 import numpy as np
 from scipy.stats import norm
-from pyDOE import lhs
+from pydoe import lhs
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 import json

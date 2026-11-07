@@ -71,7 +71,7 @@ class BayesianUncertaintyQuantifier:
             X_grid = np.column_stack([g.ravel() for g in grids])
         else:
             # Latin hypercube sampling for high dimensions
-            from pyDOE import lhs
+            from pydoe import lhs
             n_samples = min(10000, n_grid ** min(n_params, 3))
             X_unit = lhs(n_params, samples=n_samples)
             
@@ -168,7 +168,7 @@ class BayesianUncertaintyQuantifier:
         
     def _sample_from_gp_posterior(self, n_samples):
         """Sample from the full GP posterior"""
-        from pyDOE import lhs
+        from pydoe import lhs
         
         n_params = len(self.param_bounds)
         
@@ -216,7 +216,7 @@ class BayesianUncertaintyQuantifier:
         """
         if X_test is None:
             # Generate test points
-            from pyDOE import lhs
+            from pydoe import lhs
             n_params = len(self.param_bounds)
             X_unit = lhs(n_params, samples=n_test)
             
@@ -261,7 +261,7 @@ class BayesianUncertaintyQuantifier:
         Returns:
             Dictionary with acquisition function values
         """
-        from pyDOE import lhs
+        from pydoe import lhs
         
         n_params = len(self.param_bounds)
         

@@ -5,7 +5,7 @@ Complete implementation with blocked search and staged optimization
 
 import numpy as np
 import pandas as pd
-from pyDOE import lhs
+from pydoe import lhs
 import json
 import os
 import sys
