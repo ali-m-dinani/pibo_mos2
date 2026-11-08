@@ -235,7 +235,7 @@ class PIBOOptimizer(BaseOptimizer):
                  loss: Callable[[np.ndarray], float],
                  specs: List,
                  budget: int,
-                 rng: np.random.Generator) -> OptimizerResult:
+                 rng: np.random.Generator, should_stop=None) -> OptimizerResult:
         t0 = time.time()
         wrapped = self._wrap_loss(loss)
         # `live_specs` is the working spec list; the validation gate may shrink
@@ -248,7 +248,14 @@ class PIBOOptimizer(BaseOptimizer):
         # Warm start with LHS (Manuscript: 50 init points; budget-scaled here).
         n_init = min(self.n_init, max(5, budget // 5))
         X = latin_hypercube(n_init, live_specs, rng=rng)
-        y = np.array([wrapped(x) for x in X])
+        initial_losses = []
+        for candidate in X:
+            if initial_losses and should_stop is not None and should_stop():
+                break
+            initial_losses.append(wrapped(candidate))
+        n_init = len(initial_losses)
+        X = X[:n_init]
+        y = np.array(initial_losses)
         history = list(y)
 
         gp_var_log: List[float] = []
@@ -270,6 +277,8 @@ class PIBOOptimizer(BaseOptimizer):
         except Exception:
             it_iter = range(remaining)
         for it in it_iter:
+            if should_stop is not None and should_stop():
+                break
             # Online window trimming before GP fit (manuscript-style).
             X_fit, y_fit = self._trim_window(X, y, n_init)
             Xn = normalize(X_fit, live_specs)

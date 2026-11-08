@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+from run_budget import Budget
 
 from pibo_reaxff.lammps_runner import KCAL_PER_MOL_TO_EV, LAMMPSRunner
 from pibo_reaxff.optimizers.pibo import PIBOOptimizer
@@ -201,7 +202,9 @@ def main() -> int:
     parser.add_argument("--budget", type=int, default=12)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--check-only", action="store_true")
+    parser.add_argument("--time-limit-seconds", type=float)
     args = parser.parse_args()
+    clock = None if args.check_only else Budget(args.output, args.time_limit_seconds)
     if args.budget < 5:
         parser.error("--budget must be at least 5 for the PIBO warm start")
 
@@ -247,12 +250,27 @@ def main() -> int:
                 best_seen[0] = value
 
             objective.checkpoint_callback = save_best
+            original_objective = objective
+
+            def timed_objective(params):
+                value = original_objective(params)
+                temporary = args.output / "history.csv.tmp"
+                with temporary.open("w", newline="", encoding="utf-8") as stream:
+                    writer = csv.DictWriter(stream, fieldnames=list(original_objective.history[0]))
+                    writer.writeheader()
+                    writer.writerows(original_objective.history)
+                temporary.replace(args.output / "history.csv")
+                clock.checkpoint(value)
+                return value
+
+            timed_objective.checkpoint_callback = save_best
+            clock.begin()
             optimizer = PIBOOptimizer(
                 physics_informed=False,
                 config={"init_lhs_points": 5, "n_acq_candidates": 256})
             result = optimizer.optimize(
-                loss=objective, specs=specs, budget=args.budget,
-                rng=np.random.default_rng(args.seed))
+                loss=timed_objective, specs=specs, budget=args.budget,
+                rng=np.random.default_rng(args.seed), should_stop=clock.should_stop)
         finally:
             runner.close()
 
@@ -278,6 +296,7 @@ def main() -> int:
         json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print(f"Best cobalt loss: {result.best_loss:.6f} "
           f"after {result.n_evals} evaluations; results: {args.output}", flush=True)
+    clock.finish()
     return 0
 
 
